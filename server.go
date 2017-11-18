@@ -11,6 +11,8 @@ import (
 	"github.com/valep27/shortener/transform"
 )
 
+var shortener = transform.NewShortener("salt")
+
 func main() {
 	r := mux.NewRouter()
 	
@@ -59,8 +61,7 @@ func postURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh := transform.NewShortener("salt")
-	id, err := sh.Encode(index)
+	id, err := shortener.Encode(index)
 	if err != nil {
 		log.Printf("could not encode url: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
