@@ -7,6 +7,7 @@ ENV SRC_DIR=/go/src/github.com/valep27/shortener/
 ADD . $SRC_DIR
 # Build it:
 RUN cd $SRC_DIR; go build -o shortener; cp shortener /app/
+COPY config.json /app/config.json
 ENTRYPOINT ["./shortener"]
 
 EXPOSE 8080
