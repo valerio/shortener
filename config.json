@@ -1,0 +1,7 @@
+{
+    "alphabet": "",
+    "salt": "salt",
+    "redisAddress": "redis:6379",
+    "redisPassword": "",
+    "redisDb": 0
+}

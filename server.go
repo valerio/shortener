@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,9 +12,46 @@ import (
 	"github.com/valep27/shortener/transform"
 )
 
-var shortener = transform.NewShortener("salt")
+var shortener *transform.UrlShortener
+var store data.Storage
+
+// Config is used to configure the shortener and its backing storage.
+type Config struct {
+	Alphabet      string `json:"alphabet,omitempty"`
+	Salt          string `json:"salt,omitempty"`
+	RedisAddress  string `json:"redisAddress,omitempty"`
+	RedisPassword string `json:"redisPassword,omitempty"`
+	RedisDb       int    `json:"redisDb,omitempty"`
+}
+
+func loadConfiguration() Config {
+	configFile, err := os.Open("config.json")
+	if err != nil {
+		log.Fatal("Could not find configuration file")
+	}
+
+	decoder := json.NewDecoder(configFile)
+	conf := Config {}
+
+	err = decoder.Decode(&conf)
+	if err != nil {
+		log.Fatalf("Could not parse configuration file: %s", err.Error())
+	}
+
+	return conf
+}
 
 func main() {
+	config := loadConfiguration()
+
+	if len(config.Alphabet) != 0 {
+		shortener = transform.NewShortenerWithAlphabet(config.Salt, config.Alphabet)
+	} else {
+		shortener = transform.NewShortener(config.Salt)
+	}
+
+	store = data.NewRedisStorage(config.RedisAddress, config.RedisPassword, config.RedisDb)
+
 	r := mux.NewRouter()
 	
 	r.HandleFunc("/urls", postURLHandler).Methods("POST")
@@ -29,7 +67,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
-	url, err := data.Store.Get(key)
+	url, err := store.Get(key)
 	if err != nil {
 		log.Printf("redirect - key <%s> not found: %s", key, err.Error())
 		w.WriteHeader(http.StatusNotFound)
@@ -54,7 +92,7 @@ func postURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	index, err := data.Store.Next()
+	index, err := store.Next()
 	if err != nil {
 		log.Printf("error when incrementing index: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -68,7 +106,7 @@ func postURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.Store.Set(id, req.URL)
+	err = store.Set(id, req.URL)
 	if err != nil {
 		log.Printf("error when storing url: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -83,7 +121,7 @@ func getURLHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
-	url, err := data.Store.Get(key)
+	url, err := store.Get(key)
 	if err != nil {
 		log.Printf("error when getting key <%s>: %s", key, err.Error())
 		w.WriteHeader(http.StatusNotFound)

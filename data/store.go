@@ -1,14 +1,13 @@
 package data
 
 import (
+	"log"
 	"time"
 
 	"github.com/go-redis/redis"
 )
 
 const counterKey = "url_counter_key"
-
-var Store Storage = newRedisStorage()
 
 type Storage interface {
 	Set(key string, value string) error
@@ -20,12 +19,17 @@ type redisStorage struct {
 	client *redis.Client
 }
 
-func newRedisStorage() *redisStorage {
+func NewRedisStorage(addr, password string, db int) *redisStorage {
 	c := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr:     addr,
+		Password: password,
+		DB:       db,
 	})
+
+	err := c.Ping().Err()
+	if err != nil {
+		log.Fatalf("Could not reach redis instance: %s", err.Error())
+	}
 
 	return &redisStorage{
 		client: c,
